@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - CYB 5272 Final Project</title>
+    <style>
+        body {
+            background-color: #BEBBB1;
+            color: #24322A;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .login-container {
+            width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: #5F4C3B;
+            color: #BEBBB1;
+            border-radius: 10px;
+        }
+        input, button {
+            width: 90%;
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #24322A;
+            color: #BEBBB1;
+            cursor: pointer;
+        }
+        .flash {
+            background-color: #aa3333;
+            padding: 10px;
+            margin-bottom: 10px;
+            color: #fff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Nicocia and Izzy's Cyber Threats Final Project</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Login Form -->
+        <form method="POST" action="/login">
+            <input type="text" name="username" placeholder="Username">
+            <input type="password" name="password" placeholder="Password">
+            <button type="submit">Login</button>
+        </form>
+
+        <!-- Forgot Password Prompt -->
+        <p><a href="#" onclick="forgotPassword()" style="color: #BEBBB1;">Forgot Password?</a></p>
+
+        <!-- Create Account Prompt -->
+        <p><a href="#" onclick="createAccount()" style="color: #BEBBB1;">Create Account</a></p>
+    </div>
+
+    <script>
+        function forgotPassword() {
+            let email = prompt("Enter your email to reset password:");
+            if (email) {
+                alert("A password reset link has been sent to " + email);
+            }
+        }
+
+        function createAccount() {
+            let newUsername = prompt("Enter a new username:");
+            let newPassword = prompt("Enter a new password:");
+
+            if (newUsername && newPassword) {
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = "/create_account";
+
+                const userField = document.createElement("input");
+                userField.type = "hidden";
+                userField.name = "new_username";
+                userField.value = newUsername;
+
+                const passField = document.createElement("input");
+                passField.type = "hidden";
+                passField.name = "new_password";
+                passField.value = newPassword;
+
+                form.appendChild(userField);
+                form.appendChild(passField);
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert("Please enter a valid username and password.");
+            }
+        }
+    </script>
+</body>
+</html>
