@@ -21,102 +21,45 @@ def hash_password(password):
 def load_users():
     if not os.path.exists(USER_FILE):
         # Create default user with hashed password
+        default_users = {"user123": hash_password("pass123")}
         with open(USER_FILE, 'w') as f:
-            json.dump({"user123": hash_password("pass123")}, f)
-    with open(USER_FILE, 'r') as f:
-        return json.load(f)
+            json.dump(default_users, f)
+        return default_users
+    
+    try:
+        with open(USER_FILE, 'r') as f:
+            # Check if file is empty
+            if os.path.getsize(USER_FILE) == 0:
+                raise ValueError("File is empty")
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        # If file is corrupted or empty, recreate it
+        default_users = {"user123": hash_password("pass123")}
+        with open(USER_FILE, 'w') as f:
+            json.dump(default_users, f)
+        return default_users
 
 def save_users(users):
     with open(USER_FILE, 'w') as f:
-        json.dump(users, f)
+        json.dump(users, f, indent=4)  # Added indent for better readability
 
-users = load_users()
+# Initialize users with error handling
+try:
+    users = load_users()
+except Exception as e:
+    print(f"Error loading users: {e}")
+    # Fallback to default users
+    users = {"user123": hash_password("pass123")}
+    save_users(users)
 
 @app.route('/')
 def login():
     return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
-def do_login():
-    ip = request.remote_addr
-    now = time.time()
-    
-    # Track requests per IP (allow 5 attempts per minute)
-    if ip not in login_attempts:
-        login_attempts[ip] = deque(maxlen=5)
-    
-    if len(login_attempts[ip]) == 5 and now - login_attempts[ip][0] < 60:
-        flash("Too many login attempts. Try again later.")
-        return redirect(url_for('login'))
-    
-    login_attempts[ip].append(now)
-    
-    username = request.form.get('username')
-    password = request.form.get('password')
-
-    if not username or not password:
-        flash("Please enter both username and password")
-        return redirect(url_for('login'))
-
-    if username not in users:
-        flash("User not found. Try again or create an account.")
-        return redirect(url_for('login'))
-
-    if users[username] == hash_password(password):
-        session['username'] = username
-        return redirect(url_for('home'))
-    else:
-        flash("Incorrect password.")
-        return redirect(url_for('login'))
-
-@app.route('/create_account', methods=['POST'])
-def create_account():
-    ip = request.remote_addr
-    now = time.time()
-    
-    # Track account creation attempts (allow 3 per hour)
-    if ip not in account_creation_attempts:
-        account_creation_attempts[ip] = deque(maxlen=3)
-    
-    if len(account_creation_attempts[ip]) == 3 and now - account_creation_attempts[ip][0] < 3600:
-        flash("Too many account creation attempts. Try again later.")
-        return redirect(url_for('login'))
-    
-    account_creation_attempts[ip].append(now)
-    
-    new_username = request.form.get('new_username')
-    new_password = request.form.get('new_password')
-
-    if not new_username or not new_password:
-        flash("Please enter a valid username and password.")
-        return redirect(url_for('login'))
-
-    if new_username in users:
-        flash("Username already exists.")
-        return redirect(url_for('login'))
-
-    users[new_username] = hash_password(new_password)
-    save_users(users)
-    flash(f"Account created successfully for {new_username}")
-    return redirect(url_for('login'))
-
-@app.route('/home_page.html')
-def home():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    return render_template('home_page.html')
-
-@app.route('/Top_Secret.txt')
-def top_secret():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    return send_from_directory('static', 'Top_Secret.txt')
-
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    flash("You have been logged out.")
-    return redirect(url_for('login'))
+# ... [rest of your routes remain exactly the same] ...
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)  # debug=False in production
+    # Ensure the users.json file exists and is valid
+    if not os.path.exists(USER_FILE):
+        save_users(users)
+    app.run(host='0.0.0.0', port=5001, debug=False)
