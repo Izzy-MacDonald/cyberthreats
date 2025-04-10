@@ -1,21 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import json
 import os
 import hashlib
+from collections import deque
+import time
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = 'supersecretkey'  # In production, use environment variable
 
-# Rate limiting setup
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-
 USER_FILE = 'users.json'
+
+# Rate limiting storage
+login_attempts = {}
+account_creation_attempts = {}
 
 def hash_password(password):
     """Hash password using SHA3-256"""
@@ -40,8 +37,20 @@ def login():
     return render_template('login.html')
 
 @app.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")  # Limit login attempts
 def do_login():
+    ip = request.remote_addr
+    now = time.time()
+    
+    # Track requests per IP (allow 5 attempts per minute)
+    if ip not in login_attempts:
+        login_attempts[ip] = deque(maxlen=5)
+    
+    if len(login_attempts[ip]) == 5 and now - login_attempts[ip][0] < 60:
+        flash("Too many login attempts. Try again later.")
+        return redirect(url_for('login'))
+    
+    login_attempts[ip].append(now)
+    
     username = request.form.get('username')
     password = request.form.get('password')
 
@@ -61,8 +70,20 @@ def do_login():
         return redirect(url_for('login'))
 
 @app.route('/create_account', methods=['POST'])
-@limiter.limit("3 per hour")  # Limit account creation
 def create_account():
+    ip = request.remote_addr
+    now = time.time()
+    
+    # Track account creation attempts (allow 3 per hour)
+    if ip not in account_creation_attempts:
+        account_creation_attempts[ip] = deque(maxlen=3)
+    
+    if len(account_creation_attempts[ip]) == 3 and now - account_creation_attempts[ip][0] < 3600:
+        flash("Too many account creation attempts. Try again later.")
+        return redirect(url_for('login'))
+    
+    account_creation_attempts[ip].append(now)
+    
     new_username = request.form.get('new_username')
     new_password = request.form.get('new_password')
 
