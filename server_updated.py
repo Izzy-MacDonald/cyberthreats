@@ -1,0 +1,101 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import json
+import os
+import hashlib
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.secret_key = 'supersecretkey'  # In production, use environment variable
+
+# Rate limiting setup
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+USER_FILE = 'users.json'
+
+def hash_password(password):
+    """Hash password using SHA3-256"""
+    return hashlib.sha3_256(password.encode('utf-8')).hexdigest()
+
+def load_users():
+    if not os.path.exists(USER_FILE):
+        # Create default user with hashed password
+        with open(USER_FILE, 'w') as f:
+            json.dump({"user123": hash_password("pass123")}, f)
+    with open(USER_FILE, 'r') as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USER_FILE, 'w') as f:
+        json.dump(users, f)
+
+users = load_users()
+
+@app.route('/')
+def login():
+    return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")  # Limit login attempts
+def do_login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    if not username or not password:
+        flash("Please enter both username and password")
+        return redirect(url_for('login'))
+
+    if username not in users:
+        flash("User not found. Try again or create an account.")
+        return redirect(url_for('login'))
+
+    if users[username] == hash_password(password):
+        session['username'] = username
+        return redirect(url_for('home'))
+    else:
+        flash("Incorrect password.")
+        return redirect(url_for('login'))
+
+@app.route('/create_account', methods=['POST'])
+@limiter.limit("3 per hour")  # Limit account creation
+def create_account():
+    new_username = request.form.get('new_username')
+    new_password = request.form.get('new_password')
+
+    if not new_username or not new_password:
+        flash("Please enter a valid username and password.")
+        return redirect(url_for('login'))
+
+    if new_username in users:
+        flash("Username already exists.")
+        return redirect(url_for('login'))
+
+    users[new_username] = hash_password(new_password)
+    save_users(users)
+    flash(f"Account created successfully for {new_username}")
+    return redirect(url_for('login'))
+
+@app.route('/home_page.html')
+def home():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return render_template('home_page.html')
+
+@app.route('/Top_Secret.txt')
+def top_secret():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return send_from_directory('static', 'Top_Secret.txt')
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    flash("You have been logged out.")
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5001, debug=False)  # debug=False in production
