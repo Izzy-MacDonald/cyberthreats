@@ -1,63 +1,57 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import json
 import os
 import hashlib
+from collections import deque
+import time
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = 'supersecretkey'  # In production, use environment variable
 
-# Rate limiting setup
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-
 USER_FILE = 'users.json'
+
+# Rate limiting storage
+login_attempts = {}
+account_creation_attempts = {}
 
 def load_users():
     if not os.path.exists(USER_FILE):
         # Create default user with hashed password
+        default_users = {"user123": ("pass123")}
         with open(USER_FILE, 'w') as f:
-            json.dump({"user123": ("pass123")}, f)
-    with open(USER_FILE, 'r') as f:
-        return json.load(f)
+            json.dump(default_users, f)
+        return default_users
+   
+    try:
+        with open(USER_FILE, 'r') as f:
+            # Check if file is empty
+            if os.path.getsize(USER_FILE) == 0:
+                raise ValueError("File is empty")
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        # If file is corrupted or empty, recreate it
+        default_users = {"user123": ("pass123")}
+        with open(USER_FILE, 'w') as f:
+            json.dump(default_users, f)
+        return default_users
 
 def save_users(users):
     with open(USER_FILE, 'w') as f:
-        json.dump(users, f)
+        json.dump(users, f, indent=4)  # Added indent for better readability
 
-users = load_users()
+# Initialize users with error handling
+try:
+    users = load_users()
+except Exception as e:
+    print(f"Error loading users: {e}")
+    # Fallback to default users
+    users = {"user123": ("pass123")}
+    save_users(users)
 
 @app.route('/')
 def login():
     return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")  # Limit login attempts
-def do_login():
-    username = request.form.get('username')
-    password = request.form.get('password')
-
-    if not username or not password:
-        flash("Please enter both username and password")
-        return redirect(url_for('login'))
-
-    if username not in users:
-        flash("User not found. Try again or create an account.")
-        return redirect(url_for('login'))
-
-    if users[username] == hash_password(password):
-        session['username'] = username
-        return redirect(url_for('home'))
-    else:
-        flash("Incorrect password.")
-        return redirect(url_for('login'))
-
-@app.route('/create_account', methods=['POST'])
-@limiter.limit("3 per hour")  # Limit account creation
 def create_account():
     new_username = request.form.get('new_username')
     new_password = request.form.get('new_password')
@@ -84,6 +78,7 @@ def home():
     return render_template('home_page.html')
 
 @app.route('/Top_Secret.txt')
+
 def top_secret():
     if 'username' not in session:
         return redirect(url_for('login'))
@@ -96,4 +91,7 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)  # debug=False in production
+    # Ensure the users.json file exists and is valid
+    if not os.path.exists(USER_FILE):
+        save_users(users)
+    app.run(host='0.0.0.0', port=5001, debug=False)
