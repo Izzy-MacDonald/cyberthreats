@@ -56,7 +56,59 @@ except Exception as e:
 def login():
     return render_template('login.html')
 
-# ... [rest of your routes remain exactly the same] ...
+@app.route('/login', methods=['POST'])
+def do_login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    if not username or not password:
+        flash("Please enter both username and password")
+        return redirect(url_for('login'))
+
+    if username not in users:
+        flash("User not found. Try again or create an account.")
+        return redirect(url_for('login'))
+
+    if users[username] == password:
+        session['username'] = username
+        return redirect(url_for('home'))
+    else:
+        flash("Incorrect password.")
+        return redirect(url_for('login'))
+
+@app.route('/create_account', methods=['POST'])
+def create_account():
+    new_username = request.form.get('new_username')
+    new_password = request.form.get('new_password')
+
+    if not new_username or not new_password:
+        flash("Please enter a valid username and password.")
+        return redirect(url_for('login'))
+
+    if new_username in users:
+        flash("Username already exists.")
+        return redirect(url_for('login'))
+
+    users[new_username] = new_password
+    save_users(users)
+    flash(f"Account created successfully for {new_username}")
+    return redirect(url_for('login'))
+
+@app.route('/home_page.html')
+def home():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return render_template('home_page.html')
+
+@app.route('/Top_Secret.txt')
+def top_secret():
+    return send_from_directory('static', 'Top_Secret.txt')
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    flash("You have been logged out.")
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     # Ensure the users.json file exists and is valid
