@@ -20,7 +20,7 @@ USER_FILE = 'users.json'
 # Load users from file, handle empty/corrupt file
 def load_users():
     if not os.path.exists(USER_FILE):
-        default_users = {"user123": hash_password("pass123")}
+        default_users = {"user123": "pass123"}
         save_users(default_users)
         return default_users
     try:
@@ -29,7 +29,7 @@ def load_users():
         with open(USER_FILE, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, ValueError):
-        default_users = {"user123": hash_password("pass123")}
+        default_users = {"user123": "pass123"}
         save_users(default_users)
         return default_users
 
@@ -37,10 +37,6 @@ def load_users():
 def save_users(users):
     with open(USER_FILE, 'w') as f:
         json.dump(users, f, indent=4)
-
-# Hash passwords using SHA3-256
-def hash_password(password):
-    return hashlib.sha3_256(password.encode('utf-8')).hexdigest()
 
 # Initialize user data
 users = load_users()
@@ -63,7 +59,7 @@ def do_login():
         flash("User not found. Try again or create an account.")
         return redirect(url_for('login'))
 
-    if users[username] == hash_password(password):
+    if users[username] == hashlib.sha3_256(password.encode('utf-8')).hexdigest():
         session['username'] = username
         return redirect(url_for('home'))
     else:
@@ -84,7 +80,7 @@ def create_account():
         flash("Username already exists.")
         return redirect(url_for('login'))
 
-    hashed = hash_password(new_password)
+    hashed = hashlib.sha3_256(new_password.encode('utf-8')).hexdigest()
     users[new_username] = hashed
     save_users(users)
     flash(f"Account created successfully for {new_username}")
