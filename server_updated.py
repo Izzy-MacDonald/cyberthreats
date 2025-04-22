@@ -65,7 +65,7 @@ def do_login():
         flash("User not found. Try again or create an account.")
         return redirect(url_for('login'))
 
-    if users[username] == password:
+    if users[username] == hashlib.sha3_256(password.encode('utf-8')).hexdigest():
         session['username'] = username
         return redirect(url_for('home'))
     else:
