@@ -52,7 +52,6 @@ except Exception as e:
 def login():
     return render_template('login.html')
 
-<<<<<<< HEAD
 @app.route('/login', methods=['POST'])
 def do_login():
     username = request.form.get('username')
@@ -74,8 +73,6 @@ def do_login():
         return redirect(url_for('login'))
 
 @app.route('/create_account', methods=['POST'])
-=======
->>>>>>> 5cb20d9cb8ac2b37a7e025b4c45eff033b7d6008
 def create_account():
     new_username = request.form.get('new_username')
     new_password = request.form.get('new_password')
@@ -87,15 +84,10 @@ def create_account():
     if new_username in users:
         flash("Username already exists.")
         return redirect(url_for('login'))
-<<<<<<< HEAD
-
-    users[new_username] = new_password
-=======
     
     hashed = hashlib.sha3_256(new_password.encode('utf-8')).hexdigest()
 
     users[new_username] = hashed
->>>>>>> 5cb20d9cb8ac2b37a7e025b4c45eff033b7d6008
     save_users(users)
     flash(f"Account created successfully for {new_username}")
     return redirect(url_for('login'))
@@ -107,14 +99,10 @@ def home():
     return render_template('home_page.html')
 
 @app.route('/Top_Secret.txt')
-<<<<<<< HEAD
-def top_secret():
-=======
 
 def top_secret():
     if 'username' not in session:
         return redirect(url_for('login'))
->>>>>>> 5cb20d9cb8ac2b37a7e025b4c45eff033b7d6008
     return send_from_directory('static', 'Top_Secret.txt')
 
 @app.route('/logout')
